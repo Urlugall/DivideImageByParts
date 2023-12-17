@@ -1,7 +1,35 @@
-from PIL import Image
 import numpy as np
 import os
+
+from PIL import Image
 from collections import deque
+
+
+
+def find_nearest_component(small_component, large_components):
+    """
+    Find the nearest large component to a given small component.
+
+    Args:
+        small_component (list): A list of (x, y) tuples representing the small component.
+        large_components (list): A list of large components, each being a list of (x, y) tuples.
+
+    Returns:
+        int: The index of the nearest large component in 'large_components'.
+    """
+    min_distance = float('inf')
+    nearest_index = -1
+
+    for i, large_component in enumerate(large_components):
+        for (x1, y1) in small_component:
+            for (x2, y2) in large_component:
+                distance = (x2 - x1) ** 2 + (y2 - y1) ** 2
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_index = i
+
+    return nearest_index
+    
 
 def find_connected_component(img, start, visited, alpha_threshold):
     """
@@ -85,7 +113,8 @@ def split_sprite(image_path : str, output_folder : str, min_size=10, alpha_thres
         alpha_mask = image_data[:,:,3] > alpha_threshold
 
     visited = set()
-    components = []
+    large_components = []
+    small_components = []
 
     print("Starting image processing...\n")
     for y in range(alpha_mask.shape[0]):
@@ -93,22 +122,36 @@ def split_sprite(image_path : str, output_folder : str, min_size=10, alpha_thres
             if alpha_mask[y, x] and (x, y) not in visited:
                 print(f"Processing a component at position: {x}, {y}")
                 component = find_connected_component(image_data, (x, y), visited, alpha_threshold)
+                info = f"Found component with size of {len(component)} pixels"
                 if len(component) >= min_size:
-                    components.append(component)
-                    print(f"Found component with size of {len(component)} pixels\n")
+                    large_components.append(component)
+                    print(f"{info} - large\n")
                 else:
-                    print(f"Component is too small\n")
+                    small_components.append(component)
+                    print(f"{info} - small\n")
 
-    print(f"Processing completed. Found {len(components)} components.")
+    print(f"Processing completed. Found {len(large_components)} large and {len(small_components)} small components")
+    
+    if len(small_components) > 0:
+        print("Merging small...")
+
+    # Merge small components into nearest large components
+    for small_component in small_components:
+        nearest_index = find_nearest_component(small_component, large_components)
+        if nearest_index != -1:
+            large_components[nearest_index].extend(small_component)
+        else:
+            large_components.append(small_component)
+            print("There were no large components")
 
     original_image_size = image_data.shape[:2]
 
     # Save each componet
-    for i, (component) in enumerate(components, 1):
+    for i, (component) in enumerate(large_components, 1):
         output_path = os.path.join(output_folder, f'sprite_{i}.png')
         save_component_as_image(component, original_image_size, image_data, output_path)
 
     print("All components are saved.")
 
 # Calling the method
-split_sprite('Sprite.png', 'Output', min_size=30, alpha_threshold=188)
+split_sprite('Sprite.png', 'Output', min_size=80, alpha_threshold=188)
