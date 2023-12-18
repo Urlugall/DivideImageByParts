@@ -3,7 +3,23 @@ import os
 
 from PIL import Image
 from collections import deque
+from scipy.spatial import KDTree
 
+
+
+def distance_between_components(comp1, comp2):
+    """
+    Calculate the minimum distance between two components.
+
+    Args:
+        comp1, comp2 (list): Lists of (x, y) tuples representing the components.
+
+    Returns:
+        float: The minimum distance between the two components.
+    """
+    tree1 = KDTree(comp1)
+    tree2 = KDTree(comp2)
+    return tree1.query(tree2.data)[0].min()
 
 
 def find_nearest_component(small_component, large_components):
@@ -21,12 +37,10 @@ def find_nearest_component(small_component, large_components):
     nearest_index = -1
 
     for i, large_component in enumerate(large_components):
-        for (x1, y1) in small_component:
-            for (x2, y2) in large_component:
-                distance = (x2 - x1) ** 2 + (y2 - y1) ** 2
-                if distance < min_distance:
-                    min_distance = distance
-                    nearest_index = i
+        distance = distance_between_components(small_component, large_component)
+        if distance < min_distance:
+            min_distance = distance
+            nearest_index = i
 
     return nearest_index
     
@@ -92,15 +106,16 @@ def save_component_as_image(component, original_image_size, image_data, output_p
 
 
 
-def split_sprite(image_data, output_folder : str, min_size=10, alpha_threshold=0):
+def split_sprite(image_data, output_folder : str, min_size, merge_distance, alpha_threshold):
     """
     Splits an image into separate components (sprites) and saves each as a new image.
 
     Args:
         image_data (numpy.ndarray): The pixel data of the image's sprite as a NumPy array.
         output_folder (str): The directory where the split images will be saved.
-        min_size (int, optional): The minimum pixel count for a component to be saved. Defaults to 10.
-        alpha_threshold (int, optional): The alpha value threshold to consider a pixel as part of a component. Defaults to 0.
+        min_size (int, optional): The minimum pixel count for a component to be saved.
+        merge_distance (int): Distance threshold to merge nearby components.
+        alpha_threshold (int, optional): The alpha value threshold to consider a pixel as part of a component.
     """
  
     # Create a mask for pixels where the alpha channel is above the threshold
@@ -137,6 +152,17 @@ def split_sprite(image_data, output_folder : str, min_size=10, alpha_threshold=0
             large_components.append(small_component)
             #print("There were no large components")
 
+    # Merging close components
+    i = 0
+    while i < len(large_components):
+        j = i + 1
+        while j < len(large_components):
+            if distance_between_components(large_components[i], large_components[j]) <= merge_distance:
+                large_components[i].extend(large_components.pop(j))
+            else:
+                j += 1
+        i += 1
+
     original_image_size = image_data.shape[:2]
 
     # Save each componet
@@ -146,6 +172,3 @@ def split_sprite(image_data, output_folder : str, min_size=10, alpha_threshold=0
 
     print(f"Processing completed\n")
     pass
-
-# Calling the method
-#split_sprite('Sprite.png', 'Output', min_size=100, alpha_threshold=188)
