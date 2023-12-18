@@ -92,48 +92,41 @@ def save_component_as_image(component, original_image_size, image_data, output_p
 
 
 
-def split_sprite(image_path : str, output_folder : str, min_size=10, alpha_threshold=0):
+def split_sprite(image_data, output_folder : str, min_size=10, alpha_threshold=0):
     """
     Splits an image into separate components (sprites) and saves each as a new image.
 
     Args:
-        image_path (str): The path to the source image.
+        image_data (numpy.ndarray): The pixel data of the image's sprite as a NumPy array.
         output_folder (str): The directory where the split images will be saved.
         min_size (int, optional): The minimum pixel count for a component to be saved. Defaults to 10.
         alpha_threshold (int, optional): The alpha value threshold to consider a pixel as part of a component. Defaults to 0.
     """
-    print(f"Loading an image from {image_path}")
-    with Image.open(image_path) as image:
-        if image.mode in ['P', 'L']:
-            # Convert an image to RGBA if it is not in this format
-            image = image.convert('RGBA')
-        
-        image_data = np.array(image)
-        # Create a mask for pixels where the alpha channel is above the threshold
-        alpha_mask = image_data[:,:,3] > alpha_threshold
+ 
+    # Create a mask for pixels where the alpha channel is above the threshold
+    alpha_mask = image_data[:,:,3] > alpha_threshold
 
     visited = set()
     large_components = []
     small_components = []
 
-    print("Starting image processing...\n")
     for y in range(alpha_mask.shape[0]):
         for x in range(alpha_mask.shape[1]):
             if alpha_mask[y, x] and (x, y) not in visited:
-                print(f"Processing a component at position: {x}, {y}")
+                #print(f"Processing a component at position: {x}, {y}")
                 component = find_connected_component(image_data, (x, y), visited, alpha_threshold)
-                info = f"Found component with size of {len(component)} pixels"
+                #info = f"Found component with size of {len(component)} pixels"
                 if len(component) >= min_size:
                     large_components.append(component)
-                    print(f"{info} - large\n")
+                    #print(f"{info} - large\n")
                 else:
                     small_components.append(component)
-                    print(f"{info} - small\n")
+                    #print(f"{info} - small\n")
 
-    print(f"Processing completed. Found {len(large_components)} large and {len(small_components)} small components")
+    #print(f"Processing completed. Found {len(large_components)} large and {len(small_components)} small components")
     
-    if len(small_components) > 0:
-        print("Merging small...")
+    #if len(small_components) > 0:
+    #    print("Merging small...")
 
     # Merge small components into nearest large components
     for small_component in small_components:
@@ -142,7 +135,7 @@ def split_sprite(image_path : str, output_folder : str, min_size=10, alpha_thres
             large_components[nearest_index].extend(small_component)
         else:
             large_components.append(small_component)
-            print("There were no large components")
+            #print("There were no large components")
 
     original_image_size = image_data.shape[:2]
 
@@ -151,7 +144,8 @@ def split_sprite(image_path : str, output_folder : str, min_size=10, alpha_thres
         output_path = os.path.join(output_folder, f'sprite_{i}.png')
         save_component_as_image(component, original_image_size, image_data, output_path)
 
-    print("All components are saved.")
+    print(f"Processing completed\n")
+    pass
 
 # Calling the method
-split_sprite('Sprite.png', 'Output', min_size=80, alpha_threshold=188)
+#split_sprite('Sprite.png', 'Output', min_size=100, alpha_threshold=188)
